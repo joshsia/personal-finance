@@ -1,8 +1,14 @@
 {
     "Eating out": ["Snackshot", "McDonalds", "Ajisai sushi", "Big way hotpot",
-    "Hon sushi", "Hongdae", "Passion 8", "Ophelia", "Earnest"],
-    "Groceries": ["Save on foods"],
+    "Hon sushi", "Hongdae", "Passion 8", "Ophelia", "Earnest", "Uber eats",
+    "Matsuyama", "Houcailei", "Ole", "Gyukaku", "Fatburger", "Kook", "Ludica",
+    "Boba run", "Tacofino", "Bubble waffle", "Manchu wok", "Steve's poke",
+    "Asa sushi", "Eggstatic", "Tendon", "Baoguette", "Chipotle"],
+    "Groceries": ["Save on foods", "T&T"],
     "Entertainment": ["Harrison Waterpark", "Spotify"],
     "Transport": ["Compass"],
-    "Misc.": ["Evo", "Uber"]
+    "Misc.": ["Evo", "Uber", "Wifi", "House of teeth", "Aquabus", "Royal Albert Hall",
+    "Shower head", "Bed bath beyond", "Shoppers", "Amazon", "Walmart", "IKEA", "Fido",
+    "Transunion", "Crocs", "Hoka"],
+    "Holiday": ["Plane"]
 }

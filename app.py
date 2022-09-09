@@ -78,11 +78,27 @@ for i in data["Item"]:
             break
 data["Category"] = data_categories
 
-total_spending = round(data["Price"].sum(), 2)
+data["Month"] = data["Date"].dt.month_name()
+data["Year"] = data["Date"].dt.year
+
+per_period = (
+    data.groupby(by=["Year", "Month"]).sum()
+    .reset_index().sort_values(by=["Year", "Month"], ascending=True).tail(WINDOW_SIZE)
+)
+per_period["Period"] = [
+    f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])
+]
 
 TODAY = date.today()
 END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
 remaining_days = (END_DATE - TODAY).days
+
+period_data = data[
+    (data["Month"] == TODAY.strftime('%B')) &
+    (data["Year"] == TODAY.year)
+    ]
+
+total_spending = round(period_data["Price"].sum(), 2)
 
 projected_spending = round(total_spending * END_DATE.day / TODAY.day, 2)
 current_progress = int(100 * (TODAY.day / (TODAY.day + remaining_days)))
@@ -103,7 +119,7 @@ else:
 
 # Per-category budget
 per_category = (
-    data.groupby("Category")["Price"].sum()
+    period_data.groupby("Category")["Price"].sum()
     .reset_index().rename(columns={"Price": "Total"})
 )
 
@@ -112,18 +128,19 @@ category_text = []
 category_names = []
 for _, i in per_category.iterrows():
     c = i["Category"]
-    t = round(i["Total"], 2)
-    b = CATEGORY_BUDGETS[c]
-    perc = int(100 * t / b)
-    category_pie = dbc.Progress(
-        value=perc,
-        label=f"{perc}%",
-        style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-        )
-    category_pies.append(category_pie)
-    text = f"{CURRENCY}{t} spent out of {CURRENCY}{b}"
-    category_text.append(text)
-    category_names.append(c)
+    if not c == "Holiday":
+        t = round(i["Total"], 2)
+        b = CATEGORY_BUDGETS[c]
+        perc = int(100 * t / b)
+        category_pie = dbc.Progress(
+            value=perc,
+            label=f"{perc}%",
+            style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+            )
+        category_pies.append(category_pie)
+        text = f"{CURRENCY}{t} spent out of {CURRENCY}{b}"
+        category_text.append(text)
+        category_names.append(c)
 
 dbc_categories = [html.Div("Per category spending:")]
 for i, j, k in zip(category_pies, category_text, category_names):
@@ -132,16 +149,6 @@ for i, j, k in zip(category_pies, category_text, category_names):
     dbc_categories.append(html.Div(j, style={"margin-bottom": "0.5rem"}))
 
 # Spending timeline
-data["Month"] = data["Date"].dt.month_name()
-data["Year"] = data["Date"].dt.year
-
-per_period = (
-    data.groupby(by=["Year", "Month"]).sum()
-    .reset_index().sort_values(by=["Year", "Month"], ascending=True).tail(WINDOW_SIZE)
-)
-per_period["Period"] = [
-    f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])
-]
 spending_timeline = per_period.plot.line(x="Period", y="Price", legend=False)
 per_period.plot.scatter(x="Period", y="Price", legend=False, ax=spending_timeline)
 spending_timeline.set_xlabel(" ")
