@@ -251,10 +251,25 @@ def update_groceries(value):
 
 
 
-# def plot_spending_timeline():
-#     timeline_data = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M")
+def plot_spending_timeline():
+    timeline_data = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M").reset_index()
+    timeline_data = timeline_data.groupby(by=["Year", "Month"]).sum().reset_index()
+    timeline_data["Period"] = [f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])]
 
-#     chart = (alt.Chart(data))
+    chart = alt.Chart(timeline_data).mark_line().encode(
+        alt.X("Period", title=None),
+        alt.Y("Price", title="Total spent", axis=alt.Axis(format='s'))
+    ).properties(
+        width=350,
+        height=175
+    )
+
+    points = alt.Chart(timeline_data).mark_circle(size=50, color="red").encode(
+        alt.X("Period", title=None),
+        alt.Y("Price", title="Total spent")
+    )
+
+    return (chart + points).to_html()
 
 
 # plot_spending_timeline()
@@ -361,13 +376,22 @@ app.layout = html.Div(
                     ],
                     width=4
                     ),
-                dbc.Col(width=2),
+                dbc.Col(width=1),
                 dbc.Col(
                     [
-                        html.Div("Something"),
-                        html.Div("Spending timeline")
+                        dbc.Row(html.Div("Something")),
+                        html.Div(style={"margin-bottom": "5rem"}),
+                        dbc.Row(
+                            html.Div(
+                                html.Iframe(
+                                    # id="scatter",
+                                    srcDoc=plot_spending_timeline(),
+                                    style={"border-width": "0", "width": "100rem", "height": "200%"}
+                                )
+                            )
+                        )
                     ],
-                    width=4, style={"border": "1px solid #eeeeee"}),
+                    width=5),
                 dbc.Col(width=1)
             ],
             align="center"
