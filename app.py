@@ -265,8 +265,10 @@ def plot_spending_timeline(value):
     my_df = data[data["Period"].isin(eligible_periods)]
 
     if value is not None:
+        my_title = value
         timeline_data = my_df.query("Category == @value")
     else:
+        my_title = "All categories"
         timeline_data = my_df
 
     timeline_data = timeline_data.groupby(by=["Year", "Month"]).sum().reset_index()
@@ -281,7 +283,8 @@ def plot_spending_timeline(value):
         alt.Y("Price", title="Total spent", axis=alt.Axis(format='~s'), scale=alt.Scale(zero=False))
     ).properties(
         width=350,
-        height=175
+        height=175,
+        title=my_title
     )
 
     points = alt.Chart(timeline_data).mark_circle(size=50, color="red").encode(
