@@ -10,6 +10,15 @@ from datetime import date
 import calendar
 import json
 import base64
+import altair as alt
+
+app = dash.Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP, "/css/button.css"]
+)
+
+app.title = "Personal Finance Tracker"
+server = app.server
 
 LEFT_STYLE = {
     "background-color": "#0000ff",
@@ -31,7 +40,7 @@ RIGHT_STYLE = {
 BUDGET = 1500
 WARNING = 1600
 CURRENCY = "$"
-WINDOW_SIZE = 5
+WINDOW_SIZE = 12
 
 N_CATEGORIES = 5
 EATING_OUT_BUDGET = 600
@@ -49,6 +58,15 @@ CATEGORY_BUDGETS = {
 
 if sum(CATEGORY_BUDGETS.values()) > BUDGET:
     print("Budget allocation incorrect")
+
+TODAY = date.today()
+END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
+
+def get_period_data(month, year):
+    return data[
+        (data["Month"] == month) &
+        (data["Year"] == year)
+        ]
 
 # Read data
 data = pd.read_csv("finances.csv")
@@ -89,81 +107,166 @@ per_period["Period"] = [
     f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])
 ]
 
-TODAY = date.today()
-END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
-remaining_days = (END_DATE - TODAY).days
+available_months = list(per_period["Period"].unique())
 
-period_data = data[
-    (data["Month"] == TODAY.strftime('%B')) &
-    (data["Year"] == TODAY.year)
-    ]
+# Days left in the month
+@app.callback(
+    [
+        Output("strong-remaining-days", "children"),
+        Output("budget-pie", "value"),
+        Output("budget-pie", "label"),
+        Output("budget-pie", "color"),
+        Output("spend-amount", "children")
+    ],
+    Input("select-period", "value")
+)
+def update_remaining_days(value):
+    END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    total_spending = round(period_data["Price"].sum(), 2)
+    projected_spending = round(total_spending * END_DATE.day / TODAY.day, 2)
 
-total_spending = round(period_data["Price"].sum(), 2)
+    if projected_spending <= BUDGET:
+        budget_pie_color = "success"
+    elif BUDGET < projected_spending <= WARNING:
+        budget_pie_color = "warning"
+    else:
+        budget_pie_color = "danger"
 
-projected_spending = round(total_spending * END_DATE.day / TODAY.day, 2)
-current_progress = int(100 * (TODAY.day / (TODAY.day + remaining_days)))
+    if not month == TODAY.strftime('%B') and not year == TODAY.year:
+        return (
+            f"0 days left in {month} {year}",
+            100,
+            f"100% of the month",
+            budget_pie_color,
+            f"You've spent {int(100 * total_spending / BUDGET)}% of your budget "
+            f"({CURRENCY}{total_spending} out of {CURRENCY}{BUDGET})")
+    else:
+        END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
+        remaining_days = (END_DATE - TODAY).days
+        current_progress = int(100 * (TODAY.day / (TODAY.day + remaining_days)))
+        return (
+            f"{remaining_days} days left in {TODAY.strftime('%B')} {TODAY.year}",
+            current_progress,
+            f"{current_progress}% of the month",
+            budget_pie_color,
+            f"You've spent {int(100 * total_spending / BUDGET)}% of your budget "
+            f"({CURRENCY}{total_spending} out of {CURRENCY}{BUDGET})"
+            )
 
-# Overall budget summary
-budget_pie = dbc.Progress(
-    value=current_progress,
-    label=f"{current_progress}%",
-    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+# Eating out spending
+@app.callback(
+    [Output("eating-out-progress", "value"), Output("eating-out-progress", "label"), Output("eating-out-text", "children")],
+    Input("select-period", "value")
+)
+def update_eating_out(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    cat_data = period_data.query("Category == 'Eating out'")
+
+    cat_total = round(cat_data["Price"].sum(), 2)
+    perc_budget = int(100 * cat_total / CATEGORY_BUDGETS["Eating out"])
+
+    return (perc_budget,
+    f"{perc_budget}%",
+    f"{CURRENCY}{cat_total} spent out of {CURRENCY}{CATEGORY_BUDGETS['Eating out']}"
     )
 
-if projected_spending <= BUDGET:
-    budget_pie.color = "success"
-elif BUDGET < projected_spending <= WARNING:
-    budget_pie.color = "warning"
-else:
-    budget_pie.color = "danger"
 
-# Per-category budget
-per_category = (
-    period_data.groupby("Category")["Price"].sum()
-    .reset_index().rename(columns={"Price": "Total"})
+# Groceries spending
+@app.callback(
+    [Output("groceries-progress", "value"), Output("groceries-progress", "label"), Output("groceries-text", "children")],
+    Input("select-period", "value")
 )
+def update_groceries(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    cat_data = period_data.query("Category == 'Groceries'")
 
-category_pies = []
-category_text = []
-category_names = []
-for _, i in per_category.iterrows():
-    c = i["Category"]
-    if not c == "Holiday":
-        t = round(i["Total"], 2)
-        b = CATEGORY_BUDGETS[c]
-        perc = int(100 * t / b)
-        category_pie = dbc.Progress(
-            value=perc,
-            label=f"{perc}%",
-            style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-            )
-        category_pies.append(category_pie)
-        text = f"{CURRENCY}{t} spent out of {CURRENCY}{b}"
-        category_text.append(text)
-        category_names.append(c)
+    cat_total = round(cat_data["Price"].sum(), 2)
+    perc_budget = int(100 * cat_total / CATEGORY_BUDGETS["Groceries"])
 
-dbc_categories = [html.Div("Per category spending:")]
-for i, j, k in zip(category_pies, category_text, category_names):
-    dbc_categories.append(html.Strong(k))
-    dbc_categories.append(i)
-    dbc_categories.append(html.Div(j, style={"margin-bottom": "0.5rem"}))
+    return (perc_budget,
+    f"{perc_budget}%",
+    f"{CURRENCY}{cat_total} spent out of {CURRENCY}{CATEGORY_BUDGETS['Groceries']}"
+    )
 
-# Spending timeline
-spending_timeline = per_period.plot.line(x="Period", y="Price", legend=False)
-per_period.plot.scatter(x="Period", y="Price", legend=False, ax=spending_timeline)
-spending_timeline.set_xlabel(" ")
-spending_timeline.set_ylabel("Total spending")
-spending_timeline.figure.savefig("spending-timeline.png")
 
-encoded_image = base64.b64encode(open("spending-timeline.png", 'rb').read())
-
-app = dash.Dash(
-    __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP, "/css/button.css"]
+# Entertainment spending
+@app.callback(
+    [Output("entertainment-progress", "value"), Output("entertainment-progress", "label"), Output("entertainment-text", "children")],
+    Input("select-period", "value")
 )
+def update_groceries(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    cat_data = period_data.query("Category == 'Entertainment'")
 
-app.title = "Personal Finance Tracker"
-server = app.server
+    cat_total = round(cat_data["Price"].sum(), 2)
+    perc_budget = int(100 * cat_total / CATEGORY_BUDGETS["Entertainment"])
+
+    return (perc_budget,
+    f"{perc_budget}%",
+    f"{CURRENCY}{cat_total} spent out of {CURRENCY}{CATEGORY_BUDGETS['Entertainment']}"
+    )
+
+
+# Transport spending
+@app.callback(
+    [Output("transport-progress", "value"), Output("transport-progress", "label"), Output("transport-text", "children")],
+    Input("select-period", "value")
+)
+def update_groceries(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    cat_data = period_data.query("Category == 'Transport'")
+
+    cat_total = round(cat_data["Price"].sum(), 2)
+    perc_budget = int(100 * cat_total / CATEGORY_BUDGETS["Transport"])
+
+    return (perc_budget,
+    f"{perc_budget}%",
+    f"{CURRENCY}{cat_total} spent out of {CURRENCY}{CATEGORY_BUDGETS['Transport']}"
+    )
+
+
+# Misc spending
+@app.callback(
+    [Output("misc-progress", "value"), Output("misc-progress", "label"), Output("misc-text", "children")],
+    Input("select-period", "value")
+)
+def update_groceries(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+    cat_data = period_data.query("Category == 'Misc.'")
+
+    cat_total = round(cat_data["Price"].sum(), 2)
+    perc_budget = int(100 * cat_total / CATEGORY_BUDGETS["Misc."])
+
+    return (perc_budget,
+    f"{perc_budget}%",
+    f"{CURRENCY}{cat_total} spent out of {CURRENCY}{CATEGORY_BUDGETS['Misc.']}"
+    )
+
+
+
+# def plot_spending_timeline():
+#     timeline_data = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M")
+
+#     chart = (alt.Chart(data))
+
+
+# plot_spending_timeline()
+
+# # Spending timeline
+# spending_timeline = per_period.plot.line(x="Period", y="Price", legend=False)
+# per_period.plot.scatter(x="Period", y="Price", legend=False, ax=spending_timeline)
+# spending_timeline.set_xlabel(" ")
+# spending_timeline.set_ylabel("Total spending")
+# spending_timeline.figure.savefig("spending-timeline.png")
+
+# encoded_image = base64.b64encode(open("spending-timeline.png", 'rb').read())
 
 app.layout = html.Div(
     [
@@ -172,18 +275,88 @@ app.layout = html.Div(
                 dbc.Col(width=1),
                 dbc.Col(
                     [
-                        dbc.Row(style={"margin-bottom": "5rem"}),
+                        dbc.Row(style={"margin-bottom": "2rem"}),
+                        dbc.Row(
+                            dcc.Dropdown(
+                                id="select-period",
+                                placeholder="Select a month",
+                                value=f"{TODAY.strftime('%B')} {TODAY.year}",
+                                options=[
+                                    {"label": i, "value": i} for i in available_months
+                                ]
+                            ), style={"margin-bottom": "2rem"}
+                        ),
+                        dbc.Row(
+                            html.Div(id='my-output')
+                        ),
                         dbc.Row(
                             [
-                                html.Strong(f"{remaining_days} days left in {TODAY.strftime('%B')}", style={"margin-bottom": "0.5rem"}),
-                                budget_pie,
-                                html.Div(f"You've spent {int(100 * total_spending / BUDGET)}% of your budget ({CURRENCY}{total_spending} out of {CURRENCY}{BUDGET})",
-                                style={"margin-top": "0.5rem"}),
+                                html.Div(html.Strong("Placeholder days remaining", id="strong-remaining-days")),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                dbc.Progress(
+                                    id="budget-pie",
+                                    value=0,
+                                    label="Placeholder % month remaining",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                html.Div("Placeholder spend amount", id="spend-amount"),
                             ]
                         ),
                         dbc.Row(style={"margin-bottom": "3rem"}),
                         dbc.Row(
-                            dbc_categories
+                            [
+                                html.Div("Per category spending:"),
+
+                                html.Strong("Eating out"),
+                                dbc.Progress(
+                                    id="eating-out-progress",
+                                    value=0,
+                                    label=f"{0}%",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div("Placeholder eating out", id="eating-out-text"),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+
+                                html.Strong("Groceries"),
+                                dbc.Progress(
+                                    id="groceries-progress",
+                                    value=0,
+                                    label=f"{0}%",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div("Placeholder groceries", id="groceries-text"),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+
+                                html.Strong("Entertainment"),
+                                dbc.Progress(
+                                    id="entertainment-progress",
+                                    value=0,
+                                    label=f"{0}%",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div("Placeholder entertainment", id="entertainment-text"),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+
+                                html.Strong("Transport"),
+                                dbc.Progress(
+                                    id="transport-progress",
+                                    value=0,
+                                    label=f"{0}%",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div("Placeholder transport", id="transport-text"),
+                                html.Div(style={"margin-bottom": "0.5rem"}),
+
+                                html.Strong("Misc."),
+                                dbc.Progress(
+                                    id="misc-progress",
+                                    value=0,
+                                    label=f"{0}%",
+                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                ),
+                                html.Div("Placeholder misc", id="misc-text")
+                            ]
                         ),
                     ],
                     width=4
@@ -204,3 +377,5 @@ app.layout = html.Div(
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+
