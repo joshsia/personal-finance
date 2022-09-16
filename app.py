@@ -68,7 +68,7 @@ def get_period_data(month, year):
         ]
 
 # Read data
-data = pd.read_csv("finances.csv")
+data = pd.read_csv("sample-finances.csv")
 data[["Date"]] = data[["Date"]].fillna(method="ffill")
 data["Date"] = pd.to_datetime(data["Date"])
 
@@ -134,6 +134,14 @@ def update_remaining_days(value):
         budget_pie_color = "danger"
 
     if not month == TODAY.strftime('%B') and not year == TODAY.year:
+
+        if total_spending < BUDGET:
+            budget_pie_color = "success"
+        elif total_spending == BUDGET:
+            budget_pie_color = "warning"
+        else:
+            budget_pie_color = "danger"
+
         return (
             f"0 days left in {month} {year}",
             100,
