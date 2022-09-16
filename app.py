@@ -9,7 +9,6 @@ import datetime
 from datetime import date
 import calendar
 import json
-import base64
 import altair as alt
 
 app = dash.Dash(
@@ -250,15 +249,36 @@ def update_groceries(value):
     )
 
 
+# Spending timeline
+@app.callback(
+    Output("spending-timeline", "srcDoc"),
+    Input("select-category", "value")
+)
+def plot_spending_timeline(value):
+    data["Period"] = [f"{i} {j}" for i, j in zip(data["Month"], data["Year"])]
+    my_df = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M").reset_index()
+    eligible_periods = my_df["Period"].unique().tolist()
+    eligible_periods_df = pd.DataFrame({
+        "Period": eligible_periods
+    })
 
-def plot_spending_timeline():
-    timeline_data = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M").reset_index()
+    my_df = data[data["Period"].isin(eligible_periods)]
+
+    if value is not None:
+        timeline_data = my_df.query("Category == @value")
+    else:
+        timeline_data = my_df
+
     timeline_data = timeline_data.groupby(by=["Year", "Month"]).sum().reset_index()
-    timeline_data["Period"] = [f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])]
+
+    timeline_data["Period"] = [f"{i} {j}" for i, j in zip(timeline_data['Month'], timeline_data['Year'])]
+
+    timeline_data = timeline_data.merge(eligible_periods_df, on="Period", how="outer")
+    timeline_data = timeline_data.fillna(0)
 
     chart = alt.Chart(timeline_data).mark_line().encode(
         alt.X("Period", title=None),
-        alt.Y("Price", title="Total spent", axis=alt.Axis(format='s'))
+        alt.Y("Price", title="Total spent", axis=alt.Axis(format='~s'), scale=alt.Scale(zero=False))
     ).properties(
         width=350,
         height=175
@@ -269,19 +289,22 @@ def plot_spending_timeline():
         alt.Y("Price", title="Total spent")
     )
 
-    return (chart + points).to_html()
+    flag = True
 
+    if value is not None:
+        if timeline_data["Price"].max() < 0.9 * CATEGORY_BUDGETS[value]:
+            flag = False
+        budget = alt.Chart(pd.DataFrame({'y': [CATEGORY_BUDGETS[value]]})).mark_rule(strokeDash=[2,5]).encode(y='y')
+    else:
+        if timeline_data["Price"].max() < 0.9 * BUDGET:
+            flag = False
+        budget = alt.Chart(pd.DataFrame({'y': [BUDGET]})).mark_rule(strokeDash=[2,5]).encode(y='y')
 
-# plot_spending_timeline()
+    if flag:
+        return (chart + points + budget).to_html()
+    else:
+        return (chart + points).to_html()
 
-# # Spending timeline
-# spending_timeline = per_period.plot.line(x="Period", y="Price", legend=False)
-# per_period.plot.scatter(x="Period", y="Price", legend=False, ax=spending_timeline)
-# spending_timeline.set_xlabel(" ")
-# spending_timeline.set_ylabel("Total spending")
-# spending_timeline.figure.savefig("spending-timeline.png")
-
-# encoded_image = base64.b64encode(open("spending-timeline.png", 'rb').read())
 
 app.layout = html.Div(
     [
@@ -379,13 +402,22 @@ app.layout = html.Div(
                 dbc.Col(width=1),
                 dbc.Col(
                     [
-                        dbc.Row(html.Div("Something")),
+                        dbc.Row(
+                            dcc.Dropdown(
+                                id="select-category",
+                                placeholder="Select a category",
+                                value=None,
+                                options=[
+                                    {"label": i, "value": i} for i in CATEGORIES.keys() if not i == "Holiday"
+                                ]
+                            )
+                        ),
                         html.Div(style={"margin-bottom": "5rem"}),
                         dbc.Row(
                             html.Div(
                                 html.Iframe(
-                                    # id="scatter",
-                                    srcDoc=plot_spending_timeline(),
+                                    id="spending-timeline",
+                                    # srcDoc=plot_spending_timeline(),
                                     style={"border-width": "0", "width": "100rem", "height": "200%"}
                                 )
                             )
