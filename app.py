@@ -286,6 +286,11 @@ def plot_spending_timeline(value):
     timeline_data = timeline_data.merge(eligible_periods_df, on="Period", how="outer")
     timeline_data = timeline_data.fillna(0)
 
+    if value is not None:
+        timeline_data["exceed_budget"] = timeline_data["Price"] > CATEGORY_BUDGETS[value]
+    else:
+        timeline_data["exceed_budget"] = timeline_data["Price"] > BUDGET
+
     chart = alt.Chart(timeline_data).mark_line().encode(
         alt.X("Period", title=None),
         alt.Y("Price", title="Total spent", axis=alt.Axis(format='~s'), scale=alt.Scale(zero=False))
@@ -295,9 +300,10 @@ def plot_spending_timeline(value):
         title=my_title
     )
 
-    points = alt.Chart(timeline_data).mark_circle(size=50, color="red").encode(
+    points = alt.Chart(timeline_data).mark_square(size=60).encode(
         alt.X("Period", title=None),
-        alt.Y("Price", title="Total spent")
+        alt.Y("Price", title="Total spent"),
+        alt.Color("exceed_budget:Q", scale=alt.Scale(scheme='redyellowgreen', domain=[1, 0]), legend=None)
     )
 
     flag = True
