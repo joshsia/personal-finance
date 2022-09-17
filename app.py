@@ -162,6 +162,21 @@ def update_remaining_days(value):
             f"({CURRENCY}{total_spending} out of {CURRENCY}{BUDGET})"
             )
 
+
+# Top items in period
+@app.callback(
+    Output("top-items", "children"),
+    Input("select-period", "value")
+)
+def find_top_items(value):
+    month, year = value.split()
+    period_data = get_period_data(month, int(year))
+
+    top_items = period_data.groupby(by="Item")["Price"].sum().reset_index().sort_values("Price", ascending=False)["Item"].head(5).tolist()
+    children = [html.Li(i) for i in top_items]
+
+    return children
+
 # Eating out spending
 @app.callback(
     [Output("eating-out-progress", "value"), Output("eating-out-progress", "label"), Output("eating-out-text", "children")],
@@ -419,6 +434,13 @@ app.layout = html.Div(
                 dbc.Col(width=1),
                 dbc.Col(
                     [
+                        html.Strong("Top items spent on this period:"),
+                        html.Div(style={"margin-bottom": "0.5rem"}),
+                        html.Ol(
+                            children=[html.Li("Placeholder top item")],
+                            id="top-items",
+                        ),
+                        html.Div(style={"margin-bottom": "4rem"}),
                         dbc.Row(
                             dcc.Dropdown(
                                 id="select-category",
@@ -429,7 +451,7 @@ app.layout = html.Div(
                                 ]
                             )
                         ),
-                        html.Div(style={"margin-bottom": "5rem"}),
+                        html.Div(style={"margin-bottom": "2rem"}),
                         dbc.Row(
                             html.Div(
                                 html.Iframe(
