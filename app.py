@@ -42,11 +42,11 @@ CURRENCY = "$"
 WINDOW_SIZE = 12
 
 N_CATEGORIES = 5
-EATING_OUT_BUDGET = 600
-GROCERIES_BUDGET = 600
+EATING_OUT_BUDGET = 550
+GROCERIES_BUDGET = 500
 TRANSPORT_BUDGET = 100
 ENTERTAINMENT_BUDGET = 100
-MISC_BUDGET = 100
+MISC_BUDGET = 250
 CATEGORY_BUDGETS = {
     "Eating out": EATING_OUT_BUDGET,
     "Groceries": GROCERIES_BUDGET,
@@ -54,6 +54,7 @@ CATEGORY_BUDGETS = {
     "Entertainment": ENTERTAINMENT_BUDGET,
     "Misc.": MISC_BUDGET
 }
+EXCLUDED_CATEGORY = ["Holiday"]
 
 if sum(CATEGORY_BUDGETS.values()) > BUDGET:
     print("Budget allocation incorrect")
@@ -68,7 +69,7 @@ def get_period_data(month, year):
         ]
 
 # Read data
-data = pd.read_csv("sample-finances.csv")
+data = pd.read_csv("finances.csv")
 data[["Date"]] = data[["Date"]].fillna(method="ffill")
 data["Date"] = pd.to_datetime(data["Date"])
 
@@ -108,6 +109,9 @@ per_period["Period"] = [
 
 available_months = list(per_period["Period"].unique())
 
+if f"{TODAY.strftime('%B')} {TODAY.year}" not in available_months:
+    available_months.append(f"{TODAY.strftime('%B')} {TODAY.year}")
+
 # Days left in the month
 @app.callback(
     [
@@ -121,8 +125,15 @@ available_months = list(per_period["Period"].unique())
 )
 def update_remaining_days(value):
     END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+
+    if value is None:
+        period_data = data
+        month = TODAY.strftime('%B')
+        year = TODAY.year
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
+
     total_spending = round(period_data["Price"].sum(), 2)
     projected_spending = round(total_spending * END_DATE.day / TODAY.day, 2)
 
@@ -169,8 +180,11 @@ def update_remaining_days(value):
     Input("select-period", "value")
 )
 def find_top_items(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
 
     top_items = period_data.groupby(by="Item")["Price"].sum().reset_index().sort_values("Price", ascending=False)["Item"].head(5).tolist()
     children = [html.Li(i) for i in top_items]
@@ -183,8 +197,11 @@ def find_top_items(value):
     Input("select-period", "value")
 )
 def update_eating_out(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
     cat_data = period_data.query("Category == 'Eating out'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -202,8 +219,11 @@ def update_eating_out(value):
     Input("select-period", "value")
 )
 def update_groceries(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
     cat_data = period_data.query("Category == 'Groceries'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -221,8 +241,11 @@ def update_groceries(value):
     Input("select-period", "value")
 )
 def update_groceries(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
     cat_data = period_data.query("Category == 'Entertainment'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -240,8 +263,11 @@ def update_groceries(value):
     Input("select-period", "value")
 )
 def update_groceries(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
     cat_data = period_data.query("Category == 'Transport'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -259,8 +285,11 @@ def update_groceries(value):
     Input("select-period", "value")
 )
 def update_groceries(value):
-    month, year = value.split()
-    period_data = get_period_data(month, int(year))
+    if value is None:
+        period_data = data
+    else:
+        month, year = value.split()
+        period_data = get_period_data(month, int(year))
     cat_data = period_data.query("Category == 'Misc.'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -447,7 +476,7 @@ app.layout = html.Div(
                                 placeholder="Select a category",
                                 value=None,
                                 options=[
-                                    {"label": i, "value": i} for i in CATEGORIES.keys() if not i == "Holiday"
+                                    {"label": i, "value": i} for i in CATEGORIES.keys() if not i in EXCLUDED_CATEGORY
                                 ]
                             )
                         ),

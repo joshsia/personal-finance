@@ -29,11 +29,14 @@
         "Chipotle",
         "Dolar shop",
         "Bella gelateria",
-        "Santouka"
+        "Santouka",
+        "Kokoro"
     ],
     "Groceries": [
         "Save on foods",
-        "T&T"
+        "T&T",
+        "Smart",
+        "Superstore"
     ],
     "Entertainment": [
         "Harrison Waterpark",
@@ -59,7 +62,11 @@
         "Transunion",
         "Crocs",
         "Hoka",
-        "Utilities"
+        "Utilities",
+        "Sephora",
+        "Balance insurance",
+        "Internet",
+        "BC Hydro"
     ],
     "Holiday": [
         "Plane"
