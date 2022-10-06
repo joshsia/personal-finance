@@ -19,22 +19,6 @@ app = dash.Dash(
 app.title = "Personal Finance Tracker"
 server = app.server
 
-LEFT_STYLE = {
-    "background-color": "#0000ff",
-    'border': '1px solid #d3d3d3'
-}
-
-RIGHT_STYLE = {
-    "top": 0,
-    "right": 0,
-    "left": 0,
-    "height": "2rem",
-    "margin-right": "10rem",
-    "padding": "0rem 0rem",
-    "background-color": "#0000ff",
-    'border': '1px solid #d3d3d3'
-}
-
 # Constants
 BUDGET = 1500
 WARNING = 1600
@@ -95,14 +79,16 @@ for i in data["Item"]:
             data_categories.append(j)
             break
 data["Category"] = data_categories
-
-data["Month"] = data["Date"].dt.month_name()
+data["Month"] = data["Date"].dt.month
 data["Year"] = data["Date"].dt.year
 
 per_period = (
     data.groupby(by=["Year", "Month"]).sum()
     .reset_index().sort_values(by=["Year", "Month"], ascending=True).tail(WINDOW_SIZE)
 )
+per_period["Month"] = [datetime.datetime.strptime(str(i), "%m") for i in per_period["Month"]]
+per_period["Month"] = per_period["Month"].dt.month_name()
+
 per_period["Period"] = [
     f"{i} {j}" for i, j in zip(per_period['Month'], per_period['Year'])
 ]
@@ -111,6 +97,9 @@ available_months = list(per_period["Period"].unique())
 
 if f"{TODAY.strftime('%B')} {TODAY.year}" not in available_months:
     available_months.append(f"{TODAY.strftime('%B')} {TODAY.year}")
+
+data["Month"] = [datetime.datetime.strptime(str(i), "%m") for i in data["Month"]]
+data["Month"] = data["Month"].dt.month_name()
 
 # Days left in the month
 @app.callback(
@@ -309,6 +298,7 @@ def update_groceries(value):
 def plot_spending_timeline(value):
     data["Period"] = [f"{i} {j}" for i, j in zip(data["Month"], data["Year"])]
     my_df = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M").reset_index()
+
     eligible_periods = my_df["Period"].unique().tolist()
     eligible_periods_df = pd.DataFrame({
         "Period": eligible_periods
@@ -323,7 +313,14 @@ def plot_spending_timeline(value):
         my_title = "All categories"
         timeline_data = my_df
 
-    timeline_data = timeline_data.groupby(by=["Year", "Month"]).sum().reset_index()
+    timeline_data["Month"] = timeline_data["Date"].dt.month
+    timeline_data = (
+        timeline_data.groupby(by=["Year", "Month"]).sum()
+        .reset_index().sort_values(by=["Year", "Month"], ascending=True)
+    )
+
+    timeline_data["Month"] = [datetime.datetime.strptime(str(i), "%m") for i in timeline_data["Month"]]
+    timeline_data["Month"] = timeline_data["Month"].dt.month_name()
 
     timeline_data["Period"] = [f"{i} {j}" for i, j in zip(timeline_data['Month'], timeline_data['Year'])]
 
@@ -336,7 +333,7 @@ def plot_spending_timeline(value):
         timeline_data["exceed_budget"] = timeline_data["Price"] > BUDGET
 
     chart = alt.Chart(timeline_data).mark_line().encode(
-        alt.X("Period", title=None),
+        alt.X("Period", title=None, sort=timeline_data["Period"].tolist()),
         alt.Y("Price", title="Total spent", axis=alt.Axis(format='~s'), scale=alt.Scale(zero=False))
     ).properties(
         width=350,
@@ -345,7 +342,7 @@ def plot_spending_timeline(value):
     )
 
     points = alt.Chart(timeline_data).mark_square(size=60).encode(
-        alt.X("Period", title=None),
+        alt.X("Period", title=None, sort=timeline_data["Period"].tolist()),
         alt.Y("Price", title="Total spent"),
         alt.Color("exceed_budget:Q", scale=alt.Scale(scheme='redyellowgreen', domain=[1, 0]), legend=None)
     )
