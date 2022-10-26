@@ -82,6 +82,8 @@ data["Category"] = data_categories
 data["Month"] = data["Date"].dt.month
 data["Year"] = data["Date"].dt.year
 
+unique_holidays = data["Notes"].dropna().unique().tolist()
+
 per_period = (
     data.groupby(by=["Year", "Month"]).sum()
     .reset_index().sort_values(by=["Year", "Month"], ascending=True).tail(WINDOW_SIZE)
@@ -396,6 +398,47 @@ def plot_spending_timeline(value, include_holiday):
         return (chart + points).to_html()
 
 
+# Holiday total
+@app.callback(
+    Output("holiday-total", "children"),
+    Input("select-holiday", "value")
+)
+def get_total(value):
+    return f"Total spending: {CURRENCY}{data[data['Notes'] == value]['Price'].sum()}"
+
+
+# Top items in holiday
+@app.callback(
+    Output("top-items-holiday", "children"),
+    Input("select-holiday", "value")
+)
+def find_top_items(value):
+    top_items = data[data["Notes"] == value].groupby(by="Item")["Price"].sum().reset_index().sort_values("Price", ascending=False)["Item"].head(6).tolist()
+    children = [html.Li(i) for i in top_items[1:]]
+
+    return children
+
+# Holiday bar chart
+@app.callback(
+    Output("holiday-bar", "srcDoc"),
+    Input("select-holiday", "value")
+)
+def plot_spending_timeline(value):
+    my_df = data[data["Notes"] == value].groupby("Category")["Price"].sum().reset_index()
+    my_df.columns = ["Category", "Total"]
+
+    chart = alt.Chart(my_df).mark_bar().encode(
+        alt.Y("Category", title=None, sort="x"),
+        alt.X("Total", title="Total spent"),
+        alt.Color("Category", title=None, legend=None)
+    ).properties(
+        width=300,
+        height=150
+    )
+
+    return chart.to_html()
+
+
 app.layout = html.Div(
     [
         dcc.Tabs([
@@ -543,7 +586,59 @@ app.layout = html.Div(
                 ]
             ),
             dcc.Tab(label="Holiday", children=[
-                html.Strong("Top items spent on this period:")
+                dbc.Row(
+                        [
+                            dbc.Col(width=1),
+                            dbc.Col(
+                                [
+                                    dbc.Row(style={"margin-bottom": "2rem"}),
+                                    dbc.Row(
+                                        dcc.Dropdown(
+                                            id="select-holiday",
+                                            placeholder="Select a holiday",
+                                            value=unique_holidays[-1],
+                                            options=[
+                                                {"label": i, "value": i} for i in unique_holidays
+                                            ]
+                                        ),
+                                        style={"margin-bottom": "2rem"}
+                                    ),
+                                    dbc.Row(
+                                        html.Div("Placeholder spend amount", id="holiday-total"),
+                                        style={"margin-bottom": "2rem"}
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            html.Div("Per category spending:"),
+                                            dbc.Row(
+                                            html.Div(
+                                                html.Iframe(
+                                                    id="holiday-bar",
+                                                    style={"border-width": "0", "width": "100rem", "height": "200%"}
+                                                )
+                                            )
+                                    )
+                                        ]
+                                    ),
+                                ],
+                                width=4
+                                ),
+                            dbc.Col(width=1),
+                            dbc.Col(
+                                [
+                                    html.Strong("Top items spent on this holiday:"),
+                                    html.Div(style={"margin-bottom": "0.5rem"}),
+                                    html.Ol(
+                                        children=[html.Li("Placeholder top item")],
+                                        id="top-items-holiday",
+                                    ),
+                                    html.Div(style={"margin-bottom": "4rem"})
+                                ],
+                                width=5),
+                            dbc.Col(width=1)
+                        ],
+                        align="center"
+                    )
             ])
         ])
     ]
