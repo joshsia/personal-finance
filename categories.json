@@ -30,20 +30,45 @@
         "Dolar shop",
         "Bella gelateria",
         "Santouka",
-        "Kokoro"
+        "Kokoro",
+        "Minami",
+        "Breka",
+        "Broken rice",
+        "Lougheed bar",
+        "Saku",
+        "Jamon Jamon",
+        "All Bar One",
+        "Badiani gelato",
+        "Pig and butcher",
+        "Goldmine",
+        "Omotesando koffee",
+        "Pastaio",
+        "Restaurant He",
+        "Spice of life",
+        "Hjem",
+        "Coppa club",
+        "Bancone",
+        "Med Salleh Kopitiam",
+        "Mike's cafe",
+        "Afternoon tea"
     ],
     "Groceries": [
         "Save on foods",
         "T&T",
         "Smart",
-        "Superstore"
+        "Superstore",
+        "H mart",
+        "Waitrose",
+        "Water",
+        "Hotpot"
     ],
     "Entertainment": [
         "Harrison Waterpark",
         "Spotify"
     ],
     "Transport": [
-        "Compass"
+        "Compass",
+        "Oyster"
     ],
     "Misc.": [
         "Evo",
@@ -67,9 +92,20 @@
         "Balance insurance",
         "Internet",
         "BC Hydro",
-        "Cash"
+        "Cash",
+        "Dollarama",
+        "Best Buy",
+        "Thirstyyy",
+        "Face shop",
+        "Uniqlo",
+        "Souvenir",
+        "SIM card",
+        "Flying tiger",
+        "Contact lens",
+        "Graduation flowers",
+        "Plane"
     ],
     "Holiday": [
-        "Plane"
+        "Holiday"
     ]
 }

@@ -110,9 +110,12 @@ data["Month"] = data["Month"].dt.month_name()
         Output("budget-pie", "color"),
         Output("spend-amount", "children")
     ],
-    Input("select-period", "value")
+    [
+        Input("select-period", "value"),
+        Input("include-holiday", "value")
+    ]
 )
-def update_remaining_days(value):
+def update_remaining_days(value, include_holiday):
     END_DATE = datetime.date(TODAY.year, TODAY.month, calendar.monthrange(TODAY.year, TODAY.month)[1])
 
     if value is None:
@@ -122,6 +125,9 @@ def update_remaining_days(value):
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()]
 
     total_spending = round(period_data["Price"].sum(), 2)
     projected_spending = round(total_spending * END_DATE.day / TODAY.day, 2)
@@ -166,14 +172,17 @@ def update_remaining_days(value):
 # Top items in period
 @app.callback(
     Output("top-items", "children"),
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def find_top_items(value):
+def find_top_items(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()]
 
     top_items = period_data.groupby(by="Item")["Price"].sum().reset_index().sort_values("Price", ascending=False)["Item"].head(5).tolist()
     children = [html.Li(i) for i in top_items]
@@ -183,14 +192,18 @@ def find_top_items(value):
 # Eating out spending
 @app.callback(
     [Output("eating-out-progress", "value"), Output("eating-out-progress", "label"), Output("eating-out-text", "children")],
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def update_eating_out(value):
+def update_eating_out(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()].copy()
+
     cat_data = period_data.query("Category == 'Eating out'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -205,14 +218,18 @@ def update_eating_out(value):
 # Groceries spending
 @app.callback(
     [Output("groceries-progress", "value"), Output("groceries-progress", "label"), Output("groceries-text", "children")],
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def update_groceries(value):
+def update_groceries(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()].copy()
+
     cat_data = period_data.query("Category == 'Groceries'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -227,14 +244,18 @@ def update_groceries(value):
 # Entertainment spending
 @app.callback(
     [Output("entertainment-progress", "value"), Output("entertainment-progress", "label"), Output("entertainment-text", "children")],
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def update_groceries(value):
+def update_groceries(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()].copy()
+    
     cat_data = period_data.query("Category == 'Entertainment'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -249,14 +270,18 @@ def update_groceries(value):
 # Transport spending
 @app.callback(
     [Output("transport-progress", "value"), Output("transport-progress", "label"), Output("transport-text", "children")],
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def update_groceries(value):
+def update_groceries(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()].copy()
+    
     cat_data = period_data.query("Category == 'Transport'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -271,14 +296,18 @@ def update_groceries(value):
 # Misc spending
 @app.callback(
     [Output("misc-progress", "value"), Output("misc-progress", "label"), Output("misc-text", "children")],
-    Input("select-period", "value")
+    [Input("select-period", "value"), Input("include-holiday", "value")]
 )
-def update_groceries(value):
+def update_groceries(value, include_holiday):
     if value is None:
         period_data = data
     else:
         month, year = value.split()
         period_data = get_period_data(month, int(year))
+    
+    if not include_holiday:
+        period_data = period_data[period_data["Notes"].isna()].copy()
+    
     cat_data = period_data.query("Category == 'Misc.'")
 
     cat_total = round(cat_data["Price"].sum(), 2)
@@ -293,9 +322,9 @@ def update_groceries(value):
 # Spending timeline
 @app.callback(
     Output("spending-timeline", "srcDoc"),
-    Input("select-category", "value")
+    [Input("select-category", "value"), Input("include-holiday", "value")]
 )
-def plot_spending_timeline(value):
+def plot_spending_timeline(value, include_holiday):
     data["Period"] = [f"{i} {j}" for i, j in zip(data["Month"], data["Year"])]
     my_df = data.sort_values("Date", ascending=True).set_index("Date").last(f"{WINDOW_SIZE}M").reset_index()
 
@@ -312,6 +341,9 @@ def plot_spending_timeline(value):
     else:
         my_title = "All categories"
         timeline_data = my_df
+
+    if not include_holiday:
+        timeline_data = timeline_data[timeline_data["Notes"].isna()].copy()
 
     timeline_data["Month"] = timeline_data["Date"].dt.month
     timeline_data = (
@@ -366,133 +398,154 @@ def plot_spending_timeline(value):
 
 app.layout = html.Div(
     [
-        dbc.Row(
-            [
-                dbc.Col(width=1),
-                dbc.Col(
-                    [
-                        dbc.Row(style={"margin-bottom": "2rem"}),
-                        dbc.Row(
-                            dcc.Dropdown(
-                                id="select-period",
-                                placeholder="Select a month",
-                                value=f"{TODAY.strftime('%B')} {TODAY.year}",
-                                options=[
-                                    {"label": i, "value": i} for i in available_months
-                                ]
-                            ), style={"margin-bottom": "2rem"}
-                        ),
-                        dbc.Row(
-                            html.Div(id='my-output')
-                        ),
-                        dbc.Row(
-                            [
-                                html.Div(html.Strong("Placeholder days remaining", id="strong-remaining-days")),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
-                                dbc.Progress(
-                                    id="budget-pie",
-                                    value=0,
-                                    label="Placeholder % month remaining",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-                                ),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
-                                html.Div("Placeholder spend amount", id="spend-amount"),
-                            ]
-                        ),
-                        dbc.Row(style={"margin-bottom": "3rem"}),
-                        dbc.Row(
-                            [
-                                html.Div("Per category spending:"),
+        dcc.Tabs([
+            dcc.Tab(
+                label="Regular",
+                children=[
+                    dbc.Row(
+                        [
+                            dbc.Col(width=1),
+                            dbc.Col(
+                                [
+                                    dbc.Row(style={"margin-bottom": "2rem"}),
+                                    dbc.Row(
+                                        [
+                                            dcc.Dropdown(
+                                                id="select-period",
+                                                placeholder="Select a month",
+                                                value=f"{TODAY.strftime('%B')} {TODAY.year}",
+                                                options=[
+                                                    {"label": i, "value": i} for i in available_months
+                                                ]
+                                            ),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
+                                            dcc.Checklist(
+                                                id="include-holiday",
+                                                options=[
+                                                    {"label": " Include holiday", "value": "True"},
+                                                ],
+                                                value=["True"]
+                                            )
+                                        ],
+                                        style={"margin-bottom": "2rem"}
+                                    ),
+                                    dbc.Row(
+                                        html.Div(id='my-output')
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            html.Div(html.Strong("Placeholder days remaining", id="strong-remaining-days")),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
+                                            dbc.Progress(
+                                                id="budget-pie",
+                                                value=0,
+                                                label="Placeholder % month remaining",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
+                                            html.Div("Placeholder spend amount", id="spend-amount"),
+                                        ]
+                                    ),
+                                    dbc.Row(style={"margin-bottom": "3rem"}),
+                                    dbc.Row(
+                                        [
+                                            html.Div("Per category spending:"),
 
-                                html.Strong("Eating out"),
-                                dbc.Progress(
-                                    id="eating-out-progress",
-                                    value=0,
-                                    label=f"{0}%",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-                                ),
-                                html.Div("Placeholder eating out", id="eating-out-text"),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                            html.Strong("Eating out"),
+                                            dbc.Progress(
+                                                id="eating-out-progress",
+                                                value=0,
+                                                label=f"{0}%",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div("Placeholder eating out", id="eating-out-text"),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
 
-                                html.Strong("Groceries"),
-                                dbc.Progress(
-                                    id="groceries-progress",
-                                    value=0,
-                                    label=f"{0}%",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-                                ),
-                                html.Div("Placeholder groceries", id="groceries-text"),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                            html.Strong("Groceries"),
+                                            dbc.Progress(
+                                                id="groceries-progress",
+                                                value=0,
+                                                label=f"{0}%",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div("Placeholder groceries", id="groceries-text"),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
 
-                                html.Strong("Entertainment"),
-                                dbc.Progress(
-                                    id="entertainment-progress",
-                                    value=0,
-                                    label=f"{0}%",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-                                ),
-                                html.Div("Placeholder entertainment", id="entertainment-text"),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                            html.Strong("Entertainment"),
+                                            dbc.Progress(
+                                                id="entertainment-progress",
+                                                value=0,
+                                                label=f"{0}%",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div("Placeholder entertainment", id="entertainment-text"),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
 
-                                html.Strong("Transport"),
-                                dbc.Progress(
-                                    id="transport-progress",
-                                    value=0,
-                                    label=f"{0}%",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
-                                ),
-                                html.Div("Placeholder transport", id="transport-text"),
-                                html.Div(style={"margin-bottom": "0.5rem"}),
+                                            html.Strong("Transport"),
+                                            dbc.Progress(
+                                                id="transport-progress",
+                                                value=0,
+                                                label=f"{0}%",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div("Placeholder transport", id="transport-text"),
+                                            html.Div(style={"margin-bottom": "0.5rem"}),
 
-                                html.Strong("Misc."),
-                                dbc.Progress(
-                                    id="misc-progress",
-                                    value=0,
-                                    label=f"{0}%",
-                                    style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            html.Strong("Misc."),
+                                            dbc.Progress(
+                                                id="misc-progress",
+                                                value=0,
+                                                label=f"{0}%",
+                                                style={"padding": "0rem 0rem", "margin-left": "0.5rem"}
+                                            ),
+                                            html.Div("Placeholder misc", id="misc-text")
+                                        ]
+                                    ),
+                                ],
+                                width=4
                                 ),
-                                html.Div("Placeholder misc", id="misc-text")
-                            ]
-                        ),
-                    ],
-                    width=4
-                    ),
-                dbc.Col(width=1),
-                dbc.Col(
-                    [
-                        html.Strong("Top items spent on this period:"),
-                        html.Div(style={"margin-bottom": "0.5rem"}),
-                        html.Ol(
-                            children=[html.Li("Placeholder top item")],
-                            id="top-items",
-                        ),
-                        html.Div(style={"margin-bottom": "4rem"}),
-                        dbc.Row(
-                            dcc.Dropdown(
-                                id="select-category",
-                                placeholder="Select a category",
-                                value=None,
-                                options=[
-                                    {"label": i, "value": i} for i in CATEGORIES.keys() if not i in EXCLUDED_CATEGORY
-                                ]
-                            )
-                        ),
-                        html.Div(style={"margin-bottom": "2rem"}),
-                        dbc.Row(
-                            html.Div(
-                                html.Iframe(
-                                    id="spending-timeline",
-                                    # srcDoc=plot_spending_timeline(),
-                                    style={"border-width": "0", "width": "100rem", "height": "200%"}
-                                )
-                            )
-                        )
-                    ],
-                    width=5),
-                dbc.Col(width=1)
-            ],
-            align="center"
-        )
+                            dbc.Col(width=1),
+                            dbc.Col(
+                                [
+                                    html.Strong("Top items spent on this period:"),
+                                    html.Div(style={"margin-bottom": "0.5rem"}),
+                                    html.Ol(
+                                        children=[html.Li("Placeholder top item")],
+                                        id="top-items",
+                                    ),
+                                    html.Div(style={"margin-bottom": "4rem"}),
+                                    dbc.Row(
+                                        dcc.Dropdown(
+                                            id="select-category",
+                                            placeholder="Select a category",
+                                            value=None,
+                                            options=[
+                                                {"label": i, "value": i} for i in CATEGORIES.keys() if not i in EXCLUDED_CATEGORY
+                                            ]
+                                        )
+                                    ),
+                                    html.Div(style={"margin-bottom": "2rem"}),
+                                    dbc.Row(
+                                        html.Div(
+                                            html.Iframe(
+                                                id="spending-timeline",
+                                                # srcDoc=plot_spending_timeline(),
+                                                style={"border-width": "0", "width": "100rem", "height": "200%"}
+                                            )
+                                        )
+                                    )
+                                ],
+                                width=5),
+                            dbc.Col(width=1)
+                        ],
+                        align="center"
+                    )
+                ]
+            ),
+            dcc.Tab(label="Holiday", children=[
+                html.Strong("Top items spent on this period:")
+            ])
+        ])
     ]
 )
 
